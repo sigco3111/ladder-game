@@ -1,0 +1,6 @@
+{
+  "name": "세상에서 가장 공정한 사다리게임",
+  "description": "A visually engaging ladder game where users can input participants and results, and watch the paths animate to their destinations.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
