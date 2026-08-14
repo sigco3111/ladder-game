@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg" />
-    <link rel="shortcut icon" href="/public/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/ladder-game/assets/favicon-D6n1jkZ3.svg" />
+    <link rel="shortcut icon" href="/ladder-game/assets/favicon-BwH5F3yF.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>세상에서 가장 공정한 사다리게임</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -24,10 +24,805 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-slate-900 text-white">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module">
+// index.tsx
+import React4 from "react";
+import ReactDOM from "react-dom/client";
+
+// App.tsx
+import { useState as useState3, useCallback } from "react";
+
+// services/ladderService.ts
+var RUNG_VERTICAL_SPACING = 40;
+var LADDER_PADDING = 20;
+var generateLadder = (numParticipants, height, rungCount) => {
+  const newRungs = [];
+  if (numParticipants < 2) return [];
+  const possibleYPositions = [];
+  for (let y = RUNG_VERTICAL_SPACING; y < height - RUNG_VERTICAL_SPACING; y += RUNG_VERTICAL_SPACING) {
+    possibleYPositions.push(y);
+  }
+  const allPossibleRungLocations = [];
+  for (const y of possibleYPositions) {
+    for (let col = 0; col < numParticipants - 1; col++) {
+      allPossibleRungLocations.push({ y, leftCol: col });
+    }
+  }
+  for (let i = allPossibleRungLocations.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allPossibleRungLocations[i], allPossibleRungLocations[j]] = [allPossibleRungLocations[j], allPossibleRungLocations[i]];
+  }
+  const occupiedSlots = {};
+  for (const rung of allPossibleRungLocations) {
+    if (newRungs.length >= rungCount) {
+      break;
+    }
+    const { y, leftCol } = rung;
+    const key = `${y}-${leftCol}`;
+    const keyLeft = `${y}-${leftCol - 1}`;
+    const keyRight = `${y}-${leftCol + 1}`;
+    if (!occupiedSlots[key] && !occupiedSlots[keyLeft] && !occupiedSlots[keyRight]) {
+      newRungs.push(rung);
+      occupiedSlots[key] = true;
+    }
+  }
+  return newRungs;
+};
+var calculatePath = (startCol, numParticipants, height, width, rungs) => {
+  const colWidth = width / (numParticipants - 1);
+  const pathPoints = [];
+  let currentCol = startCol;
+  let currentY = LADDER_PADDING;
+  const getX = (col) => col * colWidth;
+  pathPoints.push({ x: getX(currentCol), y: 0 });
+  pathPoints.push({ x: getX(currentCol), y: LADDER_PADDING });
+  const sortedRungs = [...rungs].sort((a, b) => a.y - b.y);
+  for (const rung of sortedRungs) {
+    if (rung.y <= currentY) continue;
+    pathPoints.push({ x: getX(currentCol), y: rung.y });
+    if (rung.leftCol === currentCol) {
+      currentCol++;
+      pathPoints.push({ x: getX(currentCol), y: rung.y });
+    } else if (rung.leftCol === currentCol - 1) {
+      currentCol--;
+      pathPoints.push({ x: getX(currentCol), y: rung.y });
+    }
+  }
+  pathPoints.push({ x: getX(currentCol), y: height + LADDER_PADDING });
+  pathPoints.push({ x: getX(currentCol), y: height + LADDER_PADDING * 2 });
+  return { points: pathPoints, endIndex: currentCol };
+};
+var calculateAllPaths = (numParticipants, height, width, rungs) => {
+  const paths = [];
+  for (let i = 0; i < numParticipants; i++) {
+    paths.push(calculatePath(i, numParticipants, height, width, rungs));
+  }
+  return paths;
+};
+
+// components/SetupScreen.tsx
+import { useState, useEffect } from "react";
+
+// components/Icons.tsx
+import { jsx, jsxs } from "react/jsx-runtime";
+var PlusIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 4v16m8-8H4" }) });
+var TrashIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" }) });
+var SparklesIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: "1.5", children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.553L16.5 21.75l-.398-1.197a3.375 3.375 0 00-2.456-2.456L12.5 18l1.197-.398a3.375 3.375 0 002.456-2.456L16.5 14.25l.398 1.197a3.375 3.375 0 002.456 2.456L20.5 18l-1.197.398a3.375 3.375 0 00-2.456 2.456z" }) });
+var PlayIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className, children: /* @__PURE__ */ jsx("path", { fillRule: "evenodd", d: "M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.648c1.295.742 1.295 2.545 0 3.286L7.279 20.99c-1.25.72-2.779-.217-2.779-1.643V5.653z", clipRule: "evenodd" }) });
+var EyeIcon = ({ className }) => /* @__PURE__ */ jsxs("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: [
+  /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z" }),
+  /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" })
+] });
+var RefreshIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 16l-1.5 1.5M20 20l-1.5-1.5A9 9 0 013.5 8l1.5-1.5" }) });
+var QuestionMarkCircleIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 1.5, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" }) });
+var XIcon = ({ className }) => /* @__PURE__ */ jsx("svg", { xmlns: "http://www.w3.org/2000/svg", className, fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2, children: /* @__PURE__ */ jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M6 18L18 6M6 6l12 12" }) });
+
+// services/storageService.ts
+var SETTINGS_KEY = "ladderGameSettings";
+var saveSettings = (settings) => {
+  try {
+    const settingsJson = JSON.stringify(settings);
+    localStorage.setItem(SETTINGS_KEY, settingsJson);
+  } catch (error) {
+    console.error("Could not save settings to localStorage", error);
+  }
+};
+var loadSettings = () => {
+  try {
+    const settingsJson = localStorage.getItem(SETTINGS_KEY);
+    if (settingsJson === null) {
+      return null;
+    }
+    const parsed = JSON.parse(settingsJson);
+    if (typeof parsed === "object" && parsed !== null && "participants" in parsed && "results" in parsed && "rungCount" in parsed && "shuffleResults" in parsed && "shuffleParticipants" in parsed) {
+      return parsed;
+    }
+    return null;
+  } catch (error) {
+    console.error("Could not load settings from localStorage", error);
+    localStorage.removeItem(SETTINGS_KEY);
+    return null;
+  }
+};
+
+// components/SetupScreen.tsx
+import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
+var SetupScreen = ({ initialParticipants, initialResults, onStart }) => {
+  const [participants, setParticipants] = useState(() => {
+    return loadSettings()?.participants || initialParticipants;
+  });
+  const [results, setResults] = useState(() => {
+    return loadSettings()?.results || initialResults;
+  });
+  const [rungCount, setRungCount] = useState(() => {
+    return loadSettings()?.rungCount || 30;
+  });
+  const [shuffleResults, setShuffleResults] = useState(() => {
+    return loadSettings()?.shuffleResults ?? true;
+  });
+  const [shuffleParticipants, setShuffleParticipants] = useState(() => {
+    return loadSettings()?.shuffleParticipants ?? true;
+  });
+  useEffect(() => {
+    const minLength = Math.min(participants.length, results.length);
+    saveSettings({
+      participants: participants.slice(0, minLength),
+      results: results.slice(0, minLength),
+      rungCount,
+      shuffleResults,
+      shuffleParticipants
+    });
+  }, [participants, results, rungCount, shuffleResults, shuffleParticipants]);
+  const handleParticipantChange = (index, value) => {
+    const newParticipants = [...participants];
+    newParticipants[index] = value;
+    setParticipants(newParticipants);
+  };
+  const handleResultChange = (index, value) => {
+    const newResults = [...results];
+    newResults[index] = value;
+    setResults(newResults);
+  };
+  const addPlayer = () => {
+    if (participants.length >= 10) return;
+    const newCount = participants.length + 1;
+    setParticipants([...participants, `\uCC38\uAC00\uC790 ${newCount}`]);
+    setResults([...results, "\uAF5D"]);
+  };
+  const removePlayer = (index) => {
+    if (participants.length <= 2) return;
+    const newParticipants = [...participants];
+    newParticipants.splice(index, 1);
+    setParticipants(newParticipants);
+    const newResults = [...results];
+    newResults.splice(index, 1);
+    setResults(newResults);
+  };
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onStart(participants, results, rungCount, shuffleResults, shuffleParticipants);
+  };
+  return /* @__PURE__ */ jsxs2("form", { onSubmit: handleSubmit, className: "space-y-8", children: [
+    /* @__PURE__ */ jsxs2("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-8", children: [
+      /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
+        /* @__PURE__ */ jsxs2("div", { className: "flex justify-between items-center", children: [
+          /* @__PURE__ */ jsx2("h2", { className: "text-xl font-bold text-cyan-400", children: "\uCC38\uAC00\uC790" }),
+          /* @__PURE__ */ jsxs2("div", { className: "flex items-center", children: [
+            /* @__PURE__ */ jsx2(
+              "input",
+              {
+                id: "shuffle-participants",
+                type: "checkbox",
+                checked: shuffleParticipants,
+                onChange: (e) => setShuffleParticipants(e.target.checked),
+                className: "w-4 h-4 accent-cyan-500 text-cyan-600 bg-slate-700 border-slate-600 rounded focus:ring-cyan-500 focus:ring-2 cursor-pointer"
+              }
+            ),
+            /* @__PURE__ */ jsx2("label", { htmlFor: "shuffle-participants", className: "ml-2 text-sm font-medium text-slate-300 cursor-pointer select-none", children: "\uCC38\uAC00\uC790 \uC11E\uAE30" })
+          ] })
+        ] }),
+        participants.map((p, index) => /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx2(
+            "input",
+            {
+              type: "text",
+              value: p,
+              onChange: (e) => handleParticipantChange(index, e.target.value),
+              className: "w-full bg-slate-700/50 border border-slate-600 rounded-md px-3 py-2 text-slate-200 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition",
+              required: true
+            }
+          ),
+          /* @__PURE__ */ jsx2(
+            "button",
+            {
+              type: "button",
+              onClick: () => removePlayer(index),
+              className: "p-2 text-slate-400 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition",
+              disabled: participants.length <= 2,
+              "aria-label": `\uCC38\uAC00\uC790 ${index + 1} \uC0AD\uC81C`,
+              children: /* @__PURE__ */ jsx2(TrashIcon, { className: "w-5 h-5" })
+            }
+          )
+        ] }, index)),
+        /* @__PURE__ */ jsxs2(
+          "button",
+          {
+            type: "button",
+            onClick: addPlayer,
+            className: "w-full flex items-center justify-center gap-2 text-sm text-cyan-400 border-2 border-dashed border-slate-600 hover:border-cyan-400 hover:text-white rounded-md p-2 transition disabled:opacity-50 disabled:cursor-not-allowed",
+            disabled: participants.length >= 10,
+            children: [
+              /* @__PURE__ */ jsx2(PlusIcon, { className: "w-4 h-4" }),
+              "\uCC38\uAC00\uC790 \uCD94\uAC00"
+            ]
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
+        /* @__PURE__ */ jsxs2("div", { className: "flex justify-between items-center", children: [
+          /* @__PURE__ */ jsx2("h2", { className: "text-xl font-bold text-fuchsia-500", children: "\uACB0\uACFC" }),
+          /* @__PURE__ */ jsxs2("div", { className: "flex items-center", children: [
+            /* @__PURE__ */ jsx2(
+              "input",
+              {
+                id: "shuffle-results",
+                type: "checkbox",
+                checked: shuffleResults,
+                onChange: (e) => setShuffleResults(e.target.checked),
+                className: "w-4 h-4 accent-fuchsia-500 text-fuchsia-600 bg-slate-700 border-slate-600 rounded focus:ring-fuchsia-500 focus:ring-2 cursor-pointer"
+              }
+            ),
+            /* @__PURE__ */ jsx2("label", { htmlFor: "shuffle-results", className: "ml-2 text-sm font-medium text-slate-300 cursor-pointer select-none", children: "\uACB0\uACFC \uC11E\uAE30" })
+          ] })
+        ] }),
+        results.map((r, index) => /* @__PURE__ */ jsx2("div", { className: "flex items-center", children: /* @__PURE__ */ jsx2(
+          "input",
+          {
+            type: "text",
+            value: r,
+            onChange: (e) => handleResultChange(index, e.target.value),
+            className: "w-full bg-slate-700/50 border border-slate-600 rounded-md px-3 py-2 text-slate-200 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 focus:outline-none transition",
+            required: true
+          }
+        ) }, index))
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs2("div", { className: "space-y-4 pt-4 border-t border-slate-700/50", children: [
+      /* @__PURE__ */ jsx2("label", { htmlFor: "rungCount", className: "block text-xl font-bold text-cyan-400", children: "\uC0AC\uB2E4\uB9AC \uBCF5\uC7A1\uB3C4 (\uAC00\uB85C\uC904 \uC218)" }),
+      /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-4", children: [
+        /* @__PURE__ */ jsx2(
+          "input",
+          {
+            id: "rungCount",
+            type: "range",
+            min: "3",
+            max: "400",
+            value: rungCount,
+            onChange: (e) => setRungCount(Number(e.target.value)),
+            className: "w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          }
+        ),
+        /* @__PURE__ */ jsx2("span", { className: "font-bold text-lg text-white w-12 text-center bg-slate-700/50 border border-slate-600 rounded-md py-1", children: rungCount })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsx2("div", { className: "pt-4 border-t border-slate-700/50", children: /* @__PURE__ */ jsxs2(
+      "button",
+      {
+        type: "submit",
+        className: "w-full bg-gradient-to-r from-cyan-500 to-fuchsia-600 hover:from-cyan-400 hover:to-fuchsia-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-cyan-500/30 transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2",
+        children: [
+          /* @__PURE__ */ jsx2(SparklesIcon, { className: "w-6 h-6" }),
+          "\uAC8C\uC784 \uC0DD\uC131\uD558\uAE30"
+        ]
+      }
+    ) })
+  ] });
+};
+var SetupScreen_default = SetupScreen;
+
+// components/LadderGameScreen.tsx
+import { useState as useState2, useEffect as useEffect2, useRef, forwardRef } from "react";
+import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+var LADDER_WIDTH = 600;
+var LADDER_PADDING2 = 20;
+var BASE_DURATION = 8e3;
+var PATH_COLORS = [
+  "#22d3ee",
+  // cyan-400
+  "#f472b6",
+  // pink-400
+  "#a78bfa",
+  // violet-400
+  "#4ade80",
+  // green-400
+  "#facc15",
+  // yellow-400
+  "#fb923c",
+  // orange-400
+  "#60a5fa",
+  // blue-400
+  "#818cf8",
+  // indigo-400
+  "#e879f9",
+  // fuchsia-400
+  "#fb7185"
+  // rose-400
+];
+var PathLine = forwardRef(
+  ({ path, color, isVisible }, ref) => {
+    const d = path.points.map((p, i) => (i === 0 ? "M" : "L") + `${p.x} ${p.y}`).join(" ");
+    return /* @__PURE__ */ jsx3(
+      "path",
+      {
+        ref,
+        d,
+        stroke: color,
+        strokeWidth: "4",
+        fill: "none",
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        style: {
+          opacity: isVisible ? 1 : 0
+          // CSS transitions are managed directly on the element for more control,
+          // preventing the "flash" of the full path before the animation.
+          // The path is made visible via opacity, but it's initially "undrawn"
+          // because its stroke-dashoffset is set to its length by a useEffect hook.
+        }
+      }
+    );
+  }
+);
+PathLine.displayName = "PathLine";
+var LadderGameScreen = ({ participants, results, ladder, paths, onReset, ladderHeight }) => {
+  const [revealed, setRevealed] = useState2(Array(participants.length).fill(false));
+  const [finishedAnimations, setFinishedAnimations] = useState2(Array(participants.length).fill(false));
+  const [animating, setAnimating] = useState2(false);
+  const [animationSpeed, setAnimationSpeed] = useState2(1);
+  const resultsRef = useRef([]);
+  const resultsContainerRef = useRef(null);
+  const svgRef = useRef(null);
+  const pathRefs = useRef(/* @__PURE__ */ new Map());
+  const animationFrameId = useRef(null);
+  const duration = BASE_DURATION / animationSpeed;
+  useEffect2(() => {
+    const initPaths = () => {
+      pathRefs.current.forEach((pathElement) => {
+        if (pathElement) {
+          const length = pathElement.getTotalLength();
+          pathElement.style.strokeDasharray = `${length}`;
+          pathElement.style.strokeDashoffset = `${length}`;
+          pathElement.style.transition = "none";
+        }
+      });
+    };
+    const timerId = setTimeout(initPaths, 0);
+    return () => {
+      clearTimeout(timerId);
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [paths]);
+  const startPathAnimation = (index, onComplete) => {
+    const pathElement = pathRefs.current.get(index);
+    const svgElement = svgRef.current;
+    if (!pathElement || !svgElement) {
+      onComplete();
+      return;
+    }
+    const length = pathElement.getTotalLength();
+    pathElement.style.strokeDasharray = `${length}`;
+    pathElement.style.strokeDashoffset = `${length}`;
+    pathElement.style.transition = "none";
+    let start = null;
+    const animate = (timestamp) => {
+      if (!start) start = timestamp;
+      const progress = timestamp - start;
+      const ratio = Math.min(progress / duration, 1);
+      pathElement.style.strokeDashoffset = String(length * (1 - ratio));
+      const currentPoint = pathElement.getPointAtLength(length * ratio);
+      const svgRect = svgElement.getBoundingClientRect();
+      const pointYInViewport = svgRect.top + currentPoint.y * (svgRect.height / (ladderHeight + LADDER_PADDING2 * 3));
+      const viewportHeight = window.innerHeight;
+      const scrollTargetY = viewportHeight * 0.4;
+      const scrollError = pointYInViewport - scrollTargetY;
+      if (Math.abs(scrollError) > 1) {
+        window.scrollBy({
+          top: scrollError,
+          behavior: "auto"
+        });
+      }
+      if (ratio < 1) {
+        animationFrameId.current = requestAnimationFrame(animate);
+      } else {
+        const resultIndex = paths[index].endIndex;
+        const resultElement = resultsRef.current[resultIndex];
+        if (resultElement) {
+          resultElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        onComplete();
+      }
+    };
+    animationFrameId.current = requestAnimationFrame(animate);
+  };
+  const handleReveal = (index) => {
+    if (animating || revealed[index]) return;
+    setAnimating(true);
+    const newRevealed = [...revealed];
+    newRevealed[index] = true;
+    setRevealed(newRevealed);
+    setTimeout(() => {
+      startPathAnimation(index, () => {
+        setFinishedAnimations((prev) => {
+          const newFinished = [...prev];
+          newFinished[index] = true;
+          return newFinished;
+        });
+        setAnimating(false);
+      });
+    }, 50);
+  };
+  const handleRevealAll = () => {
+    if (animating || revealed.every((r) => r)) return;
+    setAnimating(true);
+    const newRevealed = Array(participants.length).fill(true);
+    setRevealed(newRevealed);
+    const transitionDurationSeconds = duration / 1e3;
+    setTimeout(() => {
+      pathRefs.current.forEach((pathElement) => {
+        if (pathElement) {
+          const length = pathElement.getTotalLength();
+          pathElement.style.strokeDasharray = `${length}`;
+          if (pathElement.style.strokeDashoffset === "") {
+            pathElement.style.strokeDashoffset = `${length}`;
+          }
+          pathElement.style.transition = "none";
+          pathElement.getBoundingClientRect();
+          pathElement.style.transition = `stroke-dashoffset ${transitionDurationSeconds}s ease-in-out`;
+          pathElement.style.strokeDashoffset = "0";
+        }
+      });
+    }, 50);
+    setTimeout(() => {
+      setAnimating(false);
+      setFinishedAnimations(Array(participants.length).fill(true));
+      if (resultsContainerRef.current) {
+        resultsContainerRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }, duration + 100);
+  };
+  const colWidth = LADDER_WIDTH / (participants.length > 1 ? participants.length - 1 : 1);
+  return /* @__PURE__ */ jsxs3("div", { className: "flex flex-col items-center gap-6", children: [
+    /* @__PURE__ */ jsx3("div", { className: "w-full flex justify-around", children: participants.map((p, i) => /* @__PURE__ */ jsxs3("div", { className: "flex flex-col items-center gap-2", children: [
+      /* @__PURE__ */ jsx3("div", { className: "bg-slate-700 px-4 py-2 rounded-lg text-center font-bold min-w-[80px] truncate", children: p }),
+      /* @__PURE__ */ jsx3(
+        "button",
+        {
+          onClick: () => handleReveal(i),
+          disabled: revealed[i] || animating,
+          className: "bg-cyan-500/80 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-full p-2 transition transform hover:scale-110",
+          "aria-label": `\uACB0\uACFC \uBCF4\uAE30 ${p}`,
+          children: /* @__PURE__ */ jsx3(PlayIcon, { className: "w-5 h-5" })
+        }
+      )
+    ] }, i)) }),
+    /* @__PURE__ */ jsx3("div", { className: "w-full max-w-[600px] mx-auto overflow-x-hidden", children: /* @__PURE__ */ jsxs3("svg", { ref: svgRef, viewBox: `-30 0 ${LADDER_WIDTH + 60} ${ladderHeight + LADDER_PADDING2 * 3}`, className: "w-full", children: [
+      participants.map((_, i) => /* @__PURE__ */ jsx3(
+        "line",
+        {
+          x1: i * colWidth,
+          y1: LADDER_PADDING2,
+          x2: i * colWidth,
+          y2: ladderHeight + LADDER_PADDING2,
+          stroke: "#475569",
+          strokeWidth: "3"
+        },
+        i
+      )),
+      ladder.map((rung, i) => /* @__PURE__ */ jsx3(
+        "line",
+        {
+          x1: rung.leftCol * colWidth,
+          y1: rung.y,
+          x2: (rung.leftCol + 1) * colWidth,
+          y2: rung.y,
+          stroke: "#475569",
+          strokeWidth: "3"
+        },
+        i
+      )),
+      paths.map((path, i) => /* @__PURE__ */ jsx3(
+        PathLine,
+        {
+          ref: (el) => {
+            if (el) pathRefs.current.set(i, el);
+            else pathRefs.current.delete(i);
+          },
+          path,
+          color: PATH_COLORS[i % PATH_COLORS.length],
+          isVisible: revealed[i]
+        },
+        i
+      ))
+    ] }) }),
+    /* @__PURE__ */ jsx3("div", { ref: resultsContainerRef, className: "w-full flex justify-around items-start", children: results.map((result, i) => {
+      const participantIndex = paths.findIndex((p) => p.endIndex === i);
+      const animationIsFinished = participantIndex !== -1 && finishedAnimations[participantIndex];
+      const isHighlighted = animationIsFinished;
+      const participantName = isHighlighted ? participants[participantIndex] : "";
+      return /* @__PURE__ */ jsxs3(
+        "div",
+        {
+          ref: (el) => {
+            resultsRef.current[i] = el;
+          },
+          className: "flex flex-col items-center gap-6 text-center",
+          children: [
+            /* @__PURE__ */ jsx3(
+              "div",
+              {
+                className: `bg-slate-700 px-4 py-3 rounded-lg font-bold min-w-[80px] w-full transition-all duration-500 ${isHighlighted ? "bg-fuchsia-500 text-white scale-110 shadow-lg shadow-fuchsia-500/30" : ""}`,
+                children: /* @__PURE__ */ jsx3("span", { className: "truncate", children: result })
+              }
+            ),
+            /* @__PURE__ */ jsx3("div", { className: "h-6 text-sm font-medium text-slate-300 transition-opacity duration-500", style: { opacity: animationIsFinished ? 1 : 0 }, children: animationIsFinished && /* @__PURE__ */ jsx3("span", { className: "bg-slate-600/50 px-2 py-1 rounded-md truncate", children: participantName }) })
+          ]
+        },
+        i
+      );
+    }) }),
+    /* @__PURE__ */ jsxs3("div", { className: "mt-6 w-full max-w-md flex flex-col items-center gap-4", children: [
+      /* @__PURE__ */ jsxs3("div", { className: "flex justify-center items-center gap-2", children: [
+        /* @__PURE__ */ jsx3("span", { className: "text-sm font-medium text-slate-400", children: "\uC560\uB2C8\uBA54\uC774\uC158 \uC18D\uB3C4:" }),
+        [1, 2, 4].map((speed) => /* @__PURE__ */ jsx3(
+          "button",
+          {
+            onClick: () => setAnimationSpeed(speed),
+            disabled: animating,
+            className: `w-16 text-center px-3 py-1 text-sm font-bold rounded-full transition-all duration-200 ${animationSpeed === speed ? "bg-cyan-500 text-white shadow-cyan-500/20 shadow-lg" : "bg-slate-700 hover:bg-slate-600 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"}`,
+            children: `${speed}x`
+          },
+          speed
+        ))
+      ] }),
+      /* @__PURE__ */ jsxs3("div", { className: "w-full flex flex-col sm:flex-row gap-4", children: [
+        /* @__PURE__ */ jsxs3(
+          "button",
+          {
+            onClick: handleRevealAll,
+            disabled: animating || revealed.every((r) => r),
+            className: "w-full flex-1 bg-violet-600 hover:bg-violet-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transition",
+            children: [
+              /* @__PURE__ */ jsx3(EyeIcon, { className: "w-5 h-5" }),
+              "\uC804\uCCB4 \uACB0\uACFC \uBCF4\uAE30"
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxs3(
+          "button",
+          {
+            onClick: onReset,
+            className: "w-full flex-1 bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transition",
+            children: [
+              /* @__PURE__ */ jsx3(RefreshIcon, { className: "w-5 h-5" }),
+              "\uB2E4\uC2DC\uD558\uAE30"
+            ]
+          }
+        )
+      ] })
+    ] })
+  ] });
+};
+var LadderGameScreen_default = LadderGameScreen;
+
+// components/HelpModal.tsx
+import { jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
+var HelpModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return /* @__PURE__ */ jsx4("div", { className: "fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4", onClick: onClose, role: "dialog", "aria-modal": "true", "aria-labelledby": "help-modal-title", children: /* @__PURE__ */ jsxs4(
+    "div",
+    {
+      className: "bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl shadow-cyan-500/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8 transform transition-all",
+      onClick: (e) => e.stopPropagation(),
+      children: [
+        /* @__PURE__ */ jsxs4("div", { className: "flex justify-between items-center mb-6", children: [
+          /* @__PURE__ */ jsx4("h2", { id: "help-modal-title", className: "text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-fuchsia-500", children: "\uC0AC\uB2E4\uB9AC \uAC8C\uC784, \uC815\uB9D0 \uACF5\uC815\uD560\uAE4C\uC694?" }),
+          /* @__PURE__ */ jsx4("button", { onClick: onClose, className: "p-1 text-slate-400 hover:text-white transition-colors", "aria-label": "\uB2EB\uAE30", children: /* @__PURE__ */ jsx4(XIcon, { className: "w-6 h-6" }) })
+        ] }),
+        /* @__PURE__ */ jsxs4("div", { className: "space-y-8 text-slate-300", children: [
+          /* @__PURE__ */ jsxs4("section", { children: [
+            /* @__PURE__ */ jsx4("h3", { className: "text-lg font-bold text-cyan-400 mb-2", children: "\uCD9C\uBC1C\uC810\uC5D0 \uB530\uB77C \uD655\uB960\uC774 \uB2E4\uB974\uB2E4?" }),
+            /* @__PURE__ */ jsx4("p", { className: "mb-4", children: "\uD754\uD788 \uBAA8\uB4E0 \uCD9C\uBC1C\uC810\uC758 \uD655\uB960\uC774 \uAC19\uB2E4\uACE0 \uC0DD\uAC01\uD558\uC9C0\uB9CC, \uC0AC\uB2E4\uB9AC \uAC8C\uC784\uC740 \uAD6C\uC870\uC801\uC73C\uB85C \uD2B9\uC815 \uACBD\uB85C\uAC00 \uB354 \uC790\uC8FC \uB098\uC624\uAC8C \uC124\uACC4\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4. \uD2B9\uD788 \uC591 \uB05D\uC5D0 \uC788\uB294 \uC138\uB85C\uC904\uC740 \uBD88\uB9AC\uD55C \uACBD\uC6B0\uAC00 \uB9CE\uC2B5\uB2C8\uB2E4." }),
+            /* @__PURE__ */ jsxs4("div", { className: "bg-slate-900/50 p-4 rounded-lg border border-slate-700 text-center", children: [
+              /* @__PURE__ */ jsxs4("svg", { width: "100%", height: "120", viewBox: "0 0 200 120", className: "mx-auto", "aria-hidden": "true", children: [
+                /* @__PURE__ */ jsx4("defs", { children: /* @__PURE__ */ jsx4("marker", { id: "arrow", viewBox: "0 0 10 10", refX: "5", refY: "5", markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse", children: /* @__PURE__ */ jsx4("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#f472b6" }) }) }),
+                /* @__PURE__ */ jsx4("line", { x1: "20", y1: "10", x2: "20", y2: "110", stroke: "#475569", strokeWidth: "2" }),
+                /* @__PURE__ */ jsx4("line", { x1: "80", y1: "10", x2: "80", y2: "110", stroke: "#475569", strokeWidth: "2" }),
+                /* @__PURE__ */ jsx4("line", { x1: "120", y1: "10", x2: "120", y2: "110", stroke: "#475569", strokeWidth: "2" }),
+                /* @__PURE__ */ jsx4("line", { x1: "180", y1: "10", x2: "180", y2: "110", stroke: "#475569", strokeWidth: "2" }),
+                /* @__PURE__ */ jsx4("line", { x1: "20", y1: "40", x2: "80", y2: "40", stroke: "#475569", strokeWidth: "2" }),
+                /* @__PURE__ */ jsx4("line", { x1: "120", y1: "70", x2: "180", y2: "70", stroke: "#475569", strokeWidth: "2" }),
+                /* @__PURE__ */ jsx4("path", { d: "M 20 10 V 40 H 80 V 110", stroke: "#f472b6", strokeWidth: "2.5", fill: "none", markerEnd: "url(#arrow)" }),
+                /* @__PURE__ */ jsx4("text", { x: "20", y: "8", fill: "#f472b6", fontSize: "10", textAnchor: "middle", children: "\uCD9C\uBC1C 1" }),
+                /* @__PURE__ */ jsx4("text", { x: "50", y: "35", fill: "#f472b6", fontSize: "10", children: "100% \uC774\uB3D9" }),
+                /* @__PURE__ */ jsx4("path", { d: "M 120 10 V 70 H 180 V 110", stroke: "#a78bfa", strokeWidth: "2.5", fill: "none", markerEnd: "url(#arrow)" }),
+                /* @__PURE__ */ jsx4("text", { x: "120", y: "8", fill: "#a78bfa", fontSize: "10", textAnchor: "middle", children: "\uCD9C\uBC1C 3" })
+              ] }),
+              /* @__PURE__ */ jsx4("p", { className: "text-sm mt-2 text-slate-400", children: "1\uBC88 \uC904\uC740 \uAC00\uB85C\uC904\uC774 \uC788\uB2E4\uBA74 100% \uD655\uB960\uB85C 2\uBC88\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4. \uAC00\uC6B4\uB370 \uC904\uC740 \uC591\uCABD\uC73C\uB85C \uAC08 \uAC00\uB2A5\uC131\uC774 \uC0DD\uAE41\uB2C8\uB2E4." })
+            ] }),
+            /* @__PURE__ */ jsx4("p", { className: "mt-4", children: "\uC2E4\uC81C \uC2DC\uBBAC\uB808\uC774\uC158 \uACB0\uACFC, 8\uBA85 \uAC8C\uC784\uC5D0\uC11C \uD2B9\uC815 \uBC88\uD638\uC758 \uB2F9\uCCA8 \uD655\uB960\uC740 21%\uC5D0 \uB2EC\uD55C \uBC18\uBA74, \uB2E4\uB978 \uBC88\uD638\uB294 3.33%\uC5D0 \uBD88\uACFC\uD588\uB2E4\uB294 \uC5F0\uAD6C \uACB0\uACFC\uB3C4 \uC788\uC2B5\uB2C8\uB2E4." })
+          ] }),
+          /* @__PURE__ */ jsxs4("section", { children: [
+            /* @__PURE__ */ jsx4("h3", { className: "text-lg font-bold text-cyan-400 mb-2", children: "\uAC00\uB85C\uC904 \uAC1C\uC218\uC758 \uBE44\uBC00" }),
+            /* @__PURE__ */ jsxs4("p", { className: "mb-4", children: [
+              "\uB0B4\uAC00 \uADF8\uB9B0 \uACBD\uB85C\uAC00 \uAC00\uB85C\uC904\uC744 \uBA87 \uBC88 \uD1B5\uACFC\uD588\uB294\uC9C0\uC5D0 \uB530\uB77C \uB3C4\uCC29\uD558\uB294 \uC704\uCE58\uAC00 \uACB0\uC815\uB429\uB2C8\uB2E4.",
+              /* @__PURE__ */ jsx4("span", { className: "text-fuchsia-400 font-semibold", children: "\uD640\uC218" }),
+              "\uBC88 \uD1B5\uACFC\uD558\uBA74 \uC6D0\uB798 \uC704\uCE58\uC640 \uB2E4\uB978 \uACF3\uC5D0,",
+              /* @__PURE__ */ jsx4("span", { className: "text-green-400 font-semibold", children: "\uC9DD\uC218" }),
+              "\uBC88 \uD1B5\uACFC\uD558\uBA74 \uC6D0\uB798 \uC704\uCE58\uC640 \uAC19\uC740 \uACF3(\uD639\uC740 2\uCE78, 4\uCE78 \uB5A8\uC5B4\uC9C4 \uACF3)\uC5D0 \uB3C4\uCC29\uD569\uB2C8\uB2E4."
+            ] }),
+            /* @__PURE__ */ jsxs4("div", { className: "bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col md:flex-row gap-4", children: [
+              /* @__PURE__ */ jsxs4("div", { className: "flex-1 text-center", children: [
+                /* @__PURE__ */ jsxs4("svg", { width: "100%", height: "100", viewBox: "0 0 100 100", className: "mx-auto", "aria-hidden": "true", children: [
+                  /* @__PURE__ */ jsx4("defs", { children: /* @__PURE__ */ jsx4("marker", { id: "arrow-odd", viewBox: "0 0 10 10", refX: "5", refY: "5", markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse", children: /* @__PURE__ */ jsx4("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#f9a8d4" }) }) }),
+                  /* @__PURE__ */ jsx4("line", { x1: "20", y1: "10", x2: "20", y2: "90", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("line", { x1: "80", y1: "10", x2: "80", y2: "90", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("line", { x1: "20", y1: "50", x2: "80", y2: "50", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("path", { d: "M 20 10 V 50 H 80 V 90", stroke: "#f9a8d4", strokeWidth: "2.5", fill: "none", markerEnd: "url(#arrow-odd)" }),
+                  /* @__PURE__ */ jsx4("text", { x: "50", y: "25", fill: "#f9a8d4", fontSize: "12", textAnchor: "middle", children: "\uD640\uC218\uBC88 (1\uBC88)" })
+                ] }),
+                /* @__PURE__ */ jsx4("p", { className: "text-sm text-slate-400 mt-1", children: "\uB2E4\uB978 \uACF3\uC5D0 \uB3C4\uCC29" })
+              ] }),
+              /* @__PURE__ */ jsxs4("div", { className: "flex-1 text-center", children: [
+                /* @__PURE__ */ jsxs4("svg", { width: "100%", height: "100", viewBox: "0 0 100 100", className: "mx-auto", "aria-hidden": "true", children: [
+                  /* @__PURE__ */ jsx4("defs", { children: /* @__PURE__ */ jsx4("marker", { id: "arrow-even", viewBox: "0 0 10 10", refX: "5", refY: "5", markerWidth: "6", markerHeight: "6", orient: "auto-start-reverse", children: /* @__PURE__ */ jsx4("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#86efac" }) }) }),
+                  /* @__PURE__ */ jsx4("line", { x1: "20", y1: "10", x2: "20", y2: "90", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("line", { x1: "80", y1: "10", x2: "80", y2: "90", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("line", { x1: "20", y1: "40", x2: "80", y2: "40", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("line", { x1: "20", y1: "70", x2: "80", y2: "70", stroke: "#475569", strokeWidth: "2" }),
+                  /* @__PURE__ */ jsx4("path", { d: "M 20 10 V 40 H 80 V 70 H 20 V 90", stroke: "#86efac", strokeWidth: "2.5", fill: "none", markerEnd: "url(#arrow-even)" }),
+                  /* @__PURE__ */ jsx4("text", { x: "50", y: "25", fill: "#86efac", fontSize: "12", textAnchor: "middle", children: "\uC9DD\uC218\uBC88 (2\uBC88)" })
+                ] }),
+                /* @__PURE__ */ jsx4("p", { className: "text-sm text-slate-400 mt-1", children: "\uC6D0\uB798 \uC704\uCE58\uB85C \uBCF5\uADC0" })
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs4("section", { className: "pt-6 border-t border-slate-700/50", children: [
+            /* @__PURE__ */ jsx4("h3", { className: "text-xl font-bold text-green-400 mb-3", children: "\uADF8\uB798\uC11C, \uC774 \uC571\uC740 \uC5B4\uB5BB\uAC8C \uACF5\uC815\uC131\uC744 \uB192\uC600\uC744\uAE4C\uC694?" }),
+            /* @__PURE__ */ jsxs4("div", { className: "space-y-4", children: [
+              /* @__PURE__ */ jsxs4("div", { children: [
+                /* @__PURE__ */ jsx4("h4", { className: "font-semibold text-lg text-slate-100 mb-1", children: "1. \uC555\uB3C4\uC801\uC778 \uBCF5\uC7A1\uB3C4 (\uAC00\uB85C\uC904 \uC218)" }),
+                /* @__PURE__ */ jsxs4("p", { children: [
+                  "\uC774\uB860\uC801\uC73C\uB85C \uAC00\uB85C\uC904\uC774 \uB9E4\uC6B0 \uB9CE\uC544\uC9C0\uBA74 \uBAA8\uB4E0 \uACBD\uB85C\uC758 \uD655\uB960\uC774 \uAC70\uC758 \uAC19\uC544\uC9D1\uB2C8\uB2E4. \uC800\uD76C \uC571\uC5D0\uC11C\uB294 \uAC00\uB85C\uC904\uC744 \uCD5C\uB300 ",
+                  /* @__PURE__ */ jsx4("span", { className: "font-bold text-cyan-400", children: "400\uAC1C" }),
+                  "\uAE4C\uC9C0 \uC124\uC815\uD560 \uC218 \uC788\uC5B4, \uC0AC\uC2E4\uC0C1 \uAC70\uC758 \uC644\uBCBD\uD55C \uBB34\uC791\uC704\uC131\uC744 \uAD6C\uD604\uD569\uB2C8\uB2E4."
+                ] })
+              ] }),
+              /* @__PURE__ */ jsxs4("div", { children: [
+                /* @__PURE__ */ jsx4("h4", { className: "font-semibold text-lg text-slate-100 mb-1", children: "2. \uCC38\uAC00\uC790\uC640 \uACB0\uACFC \uC154\uD50C" }),
+                /* @__PURE__ */ jsx4("p", { children: "\uC124\uB839 \uD2B9\uC815 \uACBD\uB85C\uAC00 \uC720\uB9AC\uD558\uB2E4 \uD574\uB3C4, \uCC38\uAC00\uC790\uC640 \uACB0\uACFC\uC758 \uC704\uCE58\uB97C \uBB34\uC791\uC704\uB85C \uC11E\uC5B4\uBC84\uB9AC\uBA74 \uADF8 \uC774\uC810\uC744 \uBB34\uD6A8\uD654\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. '\uCC38\uAC00\uC790 \uC11E\uAE30'\uC640 '\uACB0\uACFC \uC11E\uAE30' \uC635\uC158\uC744 \uCF1C\uBA74, \uC5B4\uB5A4 \uBC88\uD638\uB97C \uC120\uD0DD\uD558\uB4E0 \uC644\uC804\uD788 \uACF5\uD3C9\uD55C \uC870\uAC74\uC5D0\uC11C \uAC8C\uC784\uC744 \uC2DC\uC791\uD558\uAC8C \uB429\uB2C8\uB2E4." })
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsx4("div", { className: "text-center pt-6", children: /* @__PURE__ */ jsxs4("p", { className: "text-lg font-bold", children: [
+            "\uC774\uAC83\uC774 \uBC14\uB85C ",
+            /* @__PURE__ */ jsx4("span", { className: "bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-fuchsia-500", children: '"\uC138\uC0C1\uC5D0\uC11C \uAC00\uC7A5 \uACF5\uC815\uD55C \uC0AC\uB2E4\uB9AC\uAC8C\uC784"' }),
+            "\uC778 \uC774\uC720\uC785\uB2C8\uB2E4!"
+          ] }) }),
+          /* @__PURE__ */ jsx4("div", { className: "text-center pt-6 border-t border-slate-700/50", children: /* @__PURE__ */ jsxs4("p", { className: "text-sm text-slate-400", children: [
+            "\uB3C4\uC6C0\uB9D0 \uB0B4\uC6A9 \uCD9C\uCC98: ",
+            /* @__PURE__ */ jsx4("a", { href: "https://www.youtube.com/watch?v=BRaNXWYKDuo", target: "_blank", rel: "noopener noreferrer", className: "text-cyan-400 hover:underline", children: "\uC740\uADFC\uD55C \uC7A1\uB2E4\uD55C \uC9C0\uC2DD (YouTube)" })
+          ] }) })
+        ] })
+      ]
+    }
+  ) });
+};
+var HelpModal_default = HelpModal;
+
+// App.tsx
+import { Fragment, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
+var App = () => {
+  const [gameState, setGameState] = useState3("SETUP" /* Setup */);
+  const [participants, setParticipants] = useState3(["\uCC38\uAC00\uC790 1", "\uCC38\uAC00\uC790 2", "\uCC38\uAC00\uC790 3", "\uCC38\uAC00\uC790 4"]);
+  const [results, setResults] = useState3(["\uAF5D", "\uAF5D", "\uB2F9\uCCA8", "\uAF5D"]);
+  const [ladder, setLadder] = useState3([]);
+  const [paths, setPaths] = useState3([]);
+  const [ladderHeight, setLadderHeight] = useState3(400);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState3(false);
+  const handleGameStart = useCallback((initialParticipants, initialResults, rungCount, shuffleResults, shuffleParticipants) => {
+    let finalParticipants = [...initialParticipants];
+    if (shuffleParticipants) {
+      for (let i = finalParticipants.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [finalParticipants[i], finalParticipants[j]] = [finalParticipants[j], finalParticipants[i]];
+      }
+    }
+    let finalResults = [...initialResults];
+    if (shuffleResults) {
+      for (let i = finalResults.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [finalResults[i], finalResults[j]] = [finalResults[j], finalResults[i]];
+      }
+    }
+    setParticipants(finalParticipants);
+    setResults(finalResults);
+    const RUNG_VERTICAL_SPACING2 = 40;
+    const MIN_LADDER_HEIGHT = 400;
+    const numLanes = finalParticipants.length - 1;
+    let calculatedHeight = MIN_LADDER_HEIGHT;
+    if (numLanes > 0) {
+      const requiredLevels = Math.ceil(2 * rungCount / numLanes);
+      calculatedHeight = (requiredLevels + 4) * RUNG_VERTICAL_SPACING2;
+    }
+    const finalLadderHeight = Math.max(MIN_LADDER_HEIGHT, calculatedHeight);
+    setLadderHeight(finalLadderHeight);
+    const ladderWidth = 600;
+    const newLadder = generateLadder(finalParticipants.length, finalLadderHeight, rungCount);
+    const newPaths = calculateAllPaths(finalParticipants.length, finalLadderHeight, ladderWidth, newLadder);
+    setLadder(newLadder);
+    setPaths(newPaths);
+    setGameState("READY" /* Ready */);
+  }, []);
+  const handleReset = () => {
+    setGameState("SETUP" /* Setup */);
+    setLadder([]);
+    setPaths([]);
+  };
+  return /* @__PURE__ */ jsxs5(Fragment, { children: [
+    /* @__PURE__ */ jsx5("div", { className: "min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center justify-center p-4 selection:bg-cyan-400 selection:text-slate-900", children: /* @__PURE__ */ jsxs5("div", { className: "w-full max-w-5xl mx-auto my-8", children: [
+      /* @__PURE__ */ jsxs5("header", { className: "text-center mb-6 relative", children: [
+        /* @__PURE__ */ jsx5("h1", { className: "text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-fuchsia-500 pb-2", children: "\uC138\uC0C1\uC5D0\uC11C \uAC00\uC7A5 \uACF5\uC815\uD55C \uC0AC\uB2E4\uB9AC\uAC8C\uC784" }),
+        /* @__PURE__ */ jsx5("p", { className: "text-slate-400", children: "\uC6B4\uBA85\uC744 \uC2DC\uD5D8\uD574 \uBCF4\uC138\uC694!" }),
+        /* @__PURE__ */ jsx5(
+          "button",
+          {
+            onClick: () => setIsHelpModalOpen(true),
+            className: "absolute top-0 right-0 p-2 text-slate-500 hover:text-cyan-400 transition-colors",
+            "aria-label": "\uB3C4\uC6C0\uB9D0 \uBCF4\uAE30",
+            title: "\uC65C \uC774 \uAC8C\uC784\uC774 \uACF5\uC815\uD55C\uC9C0 \uC54C\uC544\uBCF4\uC138\uC694",
+            children: /* @__PURE__ */ jsx5(QuestionMarkCircleIcon, { className: "w-8 h-8" })
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsx5("main", { className: "bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-cyan-500/10 border border-slate-700/50 p-4 sm:p-6 md:p-8", children: gameState === "SETUP" /* Setup */ ? /* @__PURE__ */ jsx5(
+        SetupScreen_default,
+        {
+          initialParticipants: participants,
+          initialResults: results,
+          onStart: handleGameStart
+        }
+      ) : /* @__PURE__ */ jsx5(
+        LadderGameScreen_default,
+        {
+          participants,
+          results,
+          ladder,
+          paths,
+          onReset: handleReset,
+          ladderHeight
+        }
+      ) })
+    ] }) }),
+    /* @__PURE__ */ jsx5(HelpModal_default, { isOpen: isHelpModalOpen, onClose: () => setIsHelpModalOpen(false) })
+  ] });
+};
+var App_default = App;
+
+// index.tsx
+import { jsx as jsx6 } from "react/jsx-runtime";
+var rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+var root = ReactDOM.createRoot(rootElement);
+root.render(
+  /* @__PURE__ */ jsx6(React4.StrictMode, { children: /* @__PURE__ */ jsx6(App_default, {}) })
+);
+
+    </script>
   </body>
 </html>

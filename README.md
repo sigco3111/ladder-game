@@ -2,7 +2,9 @@
 
 이 프로젝트는 전통적인 사다리 타기 게임의 불공정성을 기술적으로 해결하고, 시각적으로 매력적인 사용자 경험을 제공하는 웹 애플리케이션입니다. 사용자는 참가자와 결과 항목을 자유롭게 설정하고, 애니메이션을 통해 운명의 길이 결정되는 과정을 지켜볼 수 있습니다.
 
-실행 주소 : https://dev-canvas-pi.vercel.app/
+라이브 데모 : https://sigco3111.github.io/ladder-game/
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-222222?style=for-the-badge&logo=githubpages)](https://sigco3111.github.io/ladder-game/)
 
 ## ✨ 주요 기능
 
@@ -67,19 +69,36 @@
 
 ## 🚀 실행 방법
 
-이 애플리케이션은 별도의 빌드 과정 없이 최신 브라우저에서 바로 실행될 수 있도록 구성되어 있습니다.
+### GitHub Pages 배포 (정식)
+
+이 저장소는 GitHub Actions 또는 수동 gh-pages 브랜치 푸시로 배포됩니다. `vite.config.ts`에 `base: '/ladder-game/'`가 박혀 있어 빌드 결과가 gh-pages 서브경로에서 정상 작동합니다.
+
+```bash
+npm install
+npm run build
+npx gh-pages -d dist
+```
+
+### 로컬 개발 (Vite)
+
+```bash
+# npm 사용
+npm install
+npm run dev          # http://localhost:5173
+npm run build        # vite build → dist/
+npm run preview      # serve dist/
+
+# 또는 yarn 사용
+yarn
+yarn dev
+```
+
+### 정적 서버로 직접 실행 (개발/테스트용)
+
+이 프로젝트는 esm.sh CDN 의존성으로 빌드 없이도 작동합니다. 로컬에서 빠르게 실행하려면:
 
 1.  프로젝트 파일들을 로컬 컴퓨터에 다운로드합니다.
 2.  로컬 웹 서버(예: VS Code의 'Live Server' 확장 프로그램 또는 Vite)를 사용하여 프로젝트를 실행합니다.
-   ```bash
-   # npm 사용
-   npm install
-   npm run dev
-   
-   # 또는 yarn 사용
-   yarn
-   yarn dev
-   ```
 3.  브라우저가 자동으로 애플리케이션을 렌더링합니다.
 
 ## ⚙️ 핵심 로직 상세
